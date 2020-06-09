@@ -8,8 +8,75 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/joho/godotenv"
 )
+
+func main() {
+	mood, city := Info()
+	// Load the .env file in the current directory
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+	// api key
+	key := os.Getenv("KEY")
+	// base url
+	base := "https://api.openweathermap.org/data/2.5/weather?q=%s&units=imperial&appid=%s"
+	// api url
+	api := fmt.Sprintf(base, city, key)
+	// request to api
+	resp, err := http.Get(api)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// response body
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// weather structure
+	var t weather
+	er := json.Unmarshal(data, &t)
+	if er != nil {
+		panic(er)
+	}
+	feelsLike := int(t.Temp.FeelsLike)
+
+	s := "That's dope you are %s btw it feels like %d degrees Fahrenheit in %s"
+	reply := fmt.Sprintf(s, mood, feelsLike, city)
+	fmt.Println(reply)
+}
+
+/****** Helpers ******/
+
+// Info gets mood and city from user
+func Info() (string, string) {
+	qs := []*survey.Question{
+		{
+			Name:     "mood",
+			Prompt:   &survey.Input{Message: "What is your current mood"},
+			Validate: survey.Required,
+		},
+		{
+			Name:     "city",
+			Prompt:   &survey.Input{Message: "What city would you like to visit?"},
+			Validate: survey.Required,
+		},
+	}
+
+	answers := struct {
+		Mood string
+		City string
+	}{}
+
+	err := survey.Ask(qs, &answers)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return answers.Mood, answers.City
+}
 
 // weather structure
 type weather struct {
@@ -31,41 +98,4 @@ type m struct {
 	Pressure float32 `json:"pressure"`
 	// Humidity
 	Humidity float32 `json:"humidity"`
-}
-
-func main() {
-	// Load the .env file in the current directory
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-	// api key
-	key := os.Getenv("KEY")
-	fmt.Println(key)
-
-	// base url
-	base := "https://api.openweathermap.org/data/2.5/weather?q=%s&units=imperial&appid=%s"
-
-	api := fmt.Sprintf(base, "London", key)
-	// ready api url
-	fmt.Println(api)
-
-	// request to api
-	resp, err := http.Get(api)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// response body
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// weather structure
-	var t weather
-	er := json.Unmarshal(data, &t)
-	if er != nil {
-		panic(er)
-	}
-	feelsLike := t.Temp.FeelsLike
-	fmt.Println(int(feelsLike))
 }
